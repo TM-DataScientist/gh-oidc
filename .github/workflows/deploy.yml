@@ -2,6 +2,13 @@ name: Deploy
 
 on:
   workflow_dispatch:
+    # 入力パラメータを追加
+    inputs:
+      environment-name:
+        # 入力パラメータで Environments を指定
+        type: environment
+        required: true
+        description: Environment name
 
 env:
   ROLE_ARN: arn:aws:iam::${{ secrets.AWS_ID }}:role/${{ secrets.ROLE_NAME }}
@@ -9,6 +16,7 @@ env:
 
 jobs:
   deploy:
+    environment: ${{ inputs.environment-name }} # Environments の指定を追加
     runs-on: ubuntu-latest
     permissions:
       contents: read
