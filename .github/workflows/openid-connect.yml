@@ -1,11 +1,13 @@
 name: OpenID Connect
 
+# mainブランチへのpush時と、Actions画面からの手動実行時に動かす
 on:
   push:
     branches:
       - main
   workflow_dispatch:
 
+# Repository Secretsを使って、引き受けるIAMロールのARNを組み立てる
 env:
   ROLE_ARN: arn:aws:iam::${{ secrets.AWS_ID }}:role/${{ secrets.ROLE_NAME }}
   SESSION_NAME: gh-oidc-${{ github.run_id }}-${{ github.run_attempt }}
@@ -14,22 +16,27 @@ jobs:
   connect:
     runs-on: ubuntu-latest
     permissions:
+      # GitHubからOIDCトークンを受け取るために必須
       id-token: write
+      # workflowの標準動作に必要な最小限の読み取り権限
       contents: read
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6.0.0
         with:
+          # OIDCでこのリポジトリを信頼するIAMロールを引き受ける
           role-to-assume: ${{ env.ROLE_ARN }}
+          # CloudTrailなどで追跡しやすいセッション名を付ける
           role-session-name: ${{ env.SESSION_NAME }}
+          # 今回の検証で使うAWSリージョン
           aws-region: ap-northeast-1
+          # 想定外のAWSアカウントを使わないための安全策
           allowed-account-ids: ${{ secrets.AWS_ID }}
 
-      - name: Show caller identity
-        run: aws sts get-caller-identity
+      - name: Validate assumed role
+        # 認証済みかだけ確認し、AWSアカウント情報はログに出さない
+        run: aws sts get-caller-identity --query Arn --output text > /dev/null
 
-      - name: List IAM users
-        run: aws iam list-users
-
-      - name: Verify write access is denied
-        run: aws iam create-user --user-name invalid || true
+      - name: Validate IAM read access
+        # 読み取り権限が使えることだけ確認し、IAM情報はログに出さない
+        run: aws iam list-users --max-items 1 > /dev/null
